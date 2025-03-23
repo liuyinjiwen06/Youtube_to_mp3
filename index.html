@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YouTube转MP3</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    .container { max-width: 800px; margin-top: 50px; }
+    .progress { height: 25px; }
+    #downloadSection { display: none; }
+    #progressSection { display: none; }
+    #errorSection { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="text-center mb-4">YouTube 转 MP3</h1>
+    
+    <form id="converterForm">
+      <div class="mb-3">
+        <input type="text" id="videoUrl" class="form-control form-control-lg" 
+               placeholder="输入YouTube视频链接" required>
+      </div>
+      <div class="d-grid">
+        <button type="submit" id="convertBtn" class="btn btn-primary btn-lg">
+          转换为MP3
+        </button>
+      </div>
+    </form>
+    
+    <div id="progressSection" class="mt-4">
+      <div class="progress">
+        <div id="progressBar" class="progress-bar" role="progressbar" style="width: 0%"></div>
+      </div>
+      <p id="progressText" class="text-center mt-2">0%</p>
+    </div>
+    
+    <div id="errorSection" class="mt-4 alert alert-danger"></div>
+    
+    <div id="downloadSection" class="mt-4 text-center">
+      <a id="downloadBtn" class="btn btn-success btn-lg">
+        <i class="bi bi-download me-2"></i>下载MP3
+      </a>
+    </div>
+  </div>
+  
+  <script>
+    document.getElementById('converterForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const videoUrl = document.getElementById('videoUrl').value;
+      const convertBtn = document.getElementById('convertBtn');
+      const progressSection = document.getElementById('progressSection');
+      const progressBar = document.getElementById('progressBar');
+      const progressText = document.getElementById('progressText');
+      const errorSection = document.getElementById('errorSection');
+      const downloadSection = document.getElementById('downloadSection');
+      const downloadBtn = document.getElementById('downloadBtn');
+      
+      // 重置状态
+      errorSection.style.display = 'none';
+      downloadSection.style.display = 'none';
+      progressBar.style.width = '0%';
+      progressText.textContent = '0%';
+      
+      // 开始转换
+      convertBtn.disabled = true;
+      convertBtn.textContent = '转换中...';
+      progressSection.style.display = 'block';
+      
+      try {
+        const response = await fetch('/api/convert', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ url: videoUrl })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || '转换失败');
+        }
+        
+        const data = await response.json();
+        
+        // 转换成功，显示下载按钮
+        downloadBtn.href = data.downloadUrl;
+        downloadBtn.setAttribute('download', `${data.title || 'youtube-audio'}.mp3`);
+        downloadSection.style.display = 'block';
+        progressBar.style.width = '100%';
+        progressText.textContent = '100%';
+        
+      } catch (error) {
+        // 显示错误信息
+        errorSection.textContent = error.message || '转换失败，请重试';
+        errorSection.style.display = 'block';
+      } finally {
+        convertBtn.disabled = false;
+        convertBtn.textContent = '转换为MP3';
+      }
+    });
+  </script>
+</body>
+</html> 
