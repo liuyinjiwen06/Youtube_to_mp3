@@ -1,9 +1,8 @@
 const express = require('express');
-const ytdlp = require('yt-dlp-exec');
-const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+const downloadManager = require('./downloadManager'); // 引入下载管理器
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -28,64 +27,44 @@ app.post('/api/convert', async (req, res) => {
       return res.status(400).json({ message: '请提供YouTube链接' });
     }
     
-    // 处理YouTube Shorts链接
-    if (url.includes('/shorts/')) {
-      const videoId = url.split('/shorts/')[1].split('?')[0];
-      url = `https://www.youtube.com/watch?v=${videoId}`;
-      console.log('转换Shorts链接为:', url);
-    }
-    
-    console.log('正在获取视频信息...');
+    console.log('收到下载请求:', url);
     
     // 生成唯一ID和文件路径
     const fileId = uuidv4();
     const tempAudioPath = path.join(tmpDir, `${fileId}.m4a`);
     const outputPath = path.join(tmpDir, `${fileId}.mp3`);
     
-    // 使用yt-dlp获取视频信息
-    const videoInfo = await ytdlp(url, {
-      skipDownload: true,
-      dumpSingleJson: true
-    });
-    
+    // 获取视频信息
+    const videoInfo = await downloadManager.getVideoInfo(url);
     const videoTitle = videoInfo.title.replace(/[^\w\s]/gi, '');
     console.log('视频标题:', videoTitle);
     
-    // 使用yt-dlp下载音频
-    console.log('开始下载音频...');
-    await ytdlp(url, {
-      output: tempAudioPath,
-      extractAudio: true,
-      audioFormat: 'm4a',
-      audioQuality: 0 // 最佳质量
+    // 下载并转换音频
+    console.log('开始下载和转换...');
+    await downloadManager.downloadAudio(url, tempAudioPath, outputPath);
+    
+    // 在发送响应前添加日志
+    console.log('准备发送成功响应:', {
+      success: true,
+      downloadUrl: `/downloads/${fileId}.mp3`,
+      title: videoTitle
     });
     
-    console.log('下载完成，开始转换为MP3...');
+    // 返回下载链接和视频信息
+    res.json({
+      success: true,
+      downloadUrl: `/downloads/${fileId}.mp3`,
+      title: videoTitle,
+      message: '转换成功',
+      videoInfo: {
+        title: videoInfo.title,
+        duration: videoInfo.duration,
+        uploader: videoInfo.uploader
+      }
+    });
     
-    // 使用ffmpeg转换为MP3
-    ffmpeg(tempAudioPath)
-      .audioBitrate(320)
-      .toFormat('mp3')
-      .save(outputPath)
-      .on('end', () => {
-        // 删除临时文件
-        fs.unlink(tempAudioPath, (err) => {
-          if (err) console.error('删除临时文件失败:', err);
-        });
-        
-        console.log('转换完成:', outputPath);
-        res.json({
-          success: true,
-          downloadUrl: `/downloads/${fileId}.mp3`,
-          title: videoTitle,
-          message: '转换成功'
-        });
-      })
-      .on('error', (err) => {
-        console.error('FFmpeg转换错误:', err);
-        res.status(500).json({ message: '视频处理失败: ' + err.message });
-      });
-      
+    console.log('响应已发送');  // 确认响应已发送
+    
   } catch (error) {
     console.error('转换过程中发生错误:', error);
     res.status(500).json({ 
@@ -93,6 +72,28 @@ app.post('/api/convert', async (req, res) => {
       error: error.message 
     });
   }
+});
+
+// 添加统计信息接口
+app.get('/api/stats', (req, res) => {
+  res.json(downloadManager.getStats());
+});
+
+// 添加健康度监控API
+app.get('/api/health', (req, res) => {
+  res.json(downloadManager.getStats());
+});
+
+// 添加重置统计API（可选，需要保护）
+app.post('/api/reset-stats', (req, res) => {
+  // 简单的API密钥保护（生产环境应使用更安全的方法）
+  const apiKey = req.body.apiKey;
+  if (apiKey !== 'your-secret-api-key') {
+    return res.status(403).json({ message: '未授权' });
+  }
+  
+  downloadManager.resetStats();
+  res.json({ message: '统计数据已重置' });
 });
 
 // 简易文件清理（每12小时运行一次）
@@ -125,4 +126,5 @@ app.get('/', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`服务器运行在端口: ${PORT}`);
+  console.log(`多库冗余下载策略已启用`);
 }); 

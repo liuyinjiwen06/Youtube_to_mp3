@@ -1,0 +1,40 @@
+{
+  "tools": {
+    "yt-dlp": {
+      "health": 100,
+      "lastUsed": 1743185674690
+    },
+    "ytdl-core": {
+      "health": 100,
+      "lastUsed": 1743184824942
+    },
+    "youtube-dl": {
+      "health": 100,
+      "lastUsed": 1743184824942
+    }
+  },
+  "stats": {
+    "total": 2,
+    "success": 2,
+    "failure": 0,
+    "byTool": {
+      "yt-dlp": {
+        "attempts": 2,
+        "success": 2,
+        "failure": 0
+      },
+      "ytdl-core": {
+        "attempts": 0,
+        "success": 0,
+        "failure": 0
+      },
+      "youtube-dl": {
+        "attempts": 0,
+        "success": 0,
+        "failure": 0
+      }
+    },
+    "lastReset": 1743184824942
+  },
+  "lastUpdated": 1743185679868
+}
